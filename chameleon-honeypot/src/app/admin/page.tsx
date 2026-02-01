@@ -372,9 +372,9 @@ export default function AdminPage() {
                             DUNGEON RANK: {dungeonRank}
                         </Badge>
                     </div>
-                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/5 border border-blue-500/20 rounded-full">
-                        <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_15px_#3b82f6] animate-pulse" />
-                        <span className="text-[10px] text-blue-400 font-bold uppercase tracking-tighter">Live Connection</span>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-red-500/5 border border-red-500/20 rounded-full">
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_15px_#ef4444] animate-pulse" />
+                        <span className="text-[10px] text-red-400 font-bold uppercase tracking-tighter">Live Connection</span>
                     </div>
                     <Button
                         size="sm"
