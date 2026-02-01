@@ -26,7 +26,10 @@ import {
     PolarGrid,
     PolarAngleAxis,
     PolarRadiusAxis,
-    Radar
+    Radar,
+    ComposedChart,
+    Area,
+    Line
 } from 'recharts'
 
 // --- CONFIGURATION ---
@@ -51,6 +54,23 @@ export default function AdminPage() {
     const [realStats, setRealStats] = useState({ hits: 0, rules: 0, blocked: 0 })
     const [logs, setLogs] = useState<{ trapped: any[], blocked: any[] }>({ trapped: [], blocked: [] })
     const [dbLogs, setDbLogs] = useState<any[]>([])
+    const [weaveStats, setWeaveStats] = useState<any[]>([])
+
+    // Fetch W&B Stats
+    useEffect(() => {
+        const fetchWeave = async () => {
+            try {
+                const res = await fetch('/api/stats/weave')
+                const data = await res.json()
+                if (data.success) setWeaveStats(data.metrics)
+            } catch (e) {
+                console.error("Failed to fetch W&B stats", e)
+            }
+        }
+        fetchWeave()
+        const interval = setInterval(fetchWeave, 5000)
+        return () => clearInterval(interval)
+    }, [])
 
     // Poll for real data
     useEffect(() => {
@@ -337,7 +357,7 @@ export default function AdminPage() {
                         <h1 className="text-3xl font-extrabold text-blue-400 tracking-tighter flex items-center gap-2">
                             SYSTEM ADMIN: S-CLASS
                         </h1>
-                        <p className="text-blue-600/60 text-sm tracking-[0.2em] uppercase font-bold mt-1">Shadow Monarch Access // UNRESTRICTED</p>
+                        <p className="text-blue-600/60 text-sm tracking-[0.2em] uppercase font-bold mt-1">Chameleon of the Dungeons</p>
                     </div>
                 </div>
                 <div className="flex gap-6 items-center">
@@ -568,10 +588,72 @@ export default function AdminPage() {
                                 <div className="text-[10px] text-slate-500 uppercase tracking-wider">Blocked</div>
                             </div>
                         </div>
-
                     </CardContent>
                 </Card>
 
+                {/* W&B EVOLUTION GRAPH */}
+                <Card className="col-span-1 lg:col-span-3 bg-black border-2 border-blue-900 shadow-[0_0_30px_rgba(30,58,138,0.2)] relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-blue-900/5 group-hover:bg-blue-900/10 transition-colors duration-500"></div>
+                    <CardHeader className="border-b border-blue-800 bg-blue-950/20 relative z-10">
+                        <CardTitle className="text-amber-500 flex items-center gap-2 tracking-widest text-sm font-bold">
+                            <Activity className="w-4 h-4" /> W&B EVOLUTION INTELLIGENCE
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[300px] pt-6 relative z-10">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={weaveStats}>
+                                <defs>
+                                    <linearGradient id="colorEvo" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
+                                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <XAxis
+                                    dataKey="time"
+                                    stroke="#334155"
+                                    tick={{ fill: '#475569', fontSize: 10 }}
+                                    tickLine={false}
+                                />
+                                <YAxis
+                                    yAxisId="left"
+                                    domain={[0, 1]}
+                                    stroke="#334155"
+                                    tick={{ fill: '#475569', fontSize: 10 }}
+                                    tickLine={false}
+                                />
+                                <YAxis
+                                    yAxisId="right"
+                                    orientation="right"
+                                    domain={[0, 100]}
+                                    stroke="#334155"
+                                    tick={{ fill: '#475569', fontSize: 10 }}
+                                    tickLine={false}
+                                />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#f8fafc' }}
+                                    itemStyle={{ color: '#f8fafc' }}
+                                />
+                                <Area
+                                    yAxisId="left"
+                                    type="monotone"
+                                    dataKey="evolutionIndex"
+                                    name="Evolution Index (AI IQ)"
+                                    fill="url(#colorEvo)"
+                                    stroke="#f59e0b"
+                                />
+                                <Line
+                                    yAxisId="right"
+                                    type="monotone"
+                                    dataKey="immunization"
+                                    name="System Immunity %"
+                                    stroke="#10b981"
+                                    strokeWidth={2}
+                                    dot={false}
+                                />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* FORENSIC LOGS SECTION */}
