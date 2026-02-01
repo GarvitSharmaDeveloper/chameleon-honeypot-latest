@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Activity, ShieldAlert, Swords, Skull, Send, Video, MessageSquare, Terminal, PieChart as PieChartIcon, Info, FileText, Download } from 'lucide-react'
+import { Activity, ShieldAlert, Swords, Skull, Send, Video, MessageSquare, Terminal, PieChart as PieChartIcon, Info, FileText, Download, Mic, MicOff, Sparkles, RefreshCw } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -29,9 +29,15 @@ import {
     Radar
 } from 'recharts'
 
+// --- CONFIGURATION ---
+// Replace this with your valid Daily.co room URL for the demo
+const DAILY_ROOM_URL = "https://arise.daily.co/chameleon"
+
 export default function AdminPage() {
     const [inCall, setInCall] = useState(false)
     const [chatMode, setChatMode] = useState(false)
+    const [isListening, setIsListening] = useState(false)
+    const [isSummarizing, setIsSummarizing] = useState(false)
 
     // Chat State
     const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([
@@ -39,6 +45,7 @@ export default function AdminPage() {
     ])
     const [input, setInput] = useState('')
     const scrollRef = useRef<HTMLDivElement>(null)
+    const recognitionRef = useRef<any>(null)
 
     // Real Data State
     const [realStats, setRealStats] = useState({ hits: 0, rules: 0, blocked: 0 })
@@ -106,6 +113,150 @@ export default function AdminPage() {
             style: { background: '#450a0a', color: '#f87171', border: '1px solid #b91c1c' }
         })
     }
+
+    // Voice Recognition
+    const startVoiceRecognition = () => {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            toast.error("Voice Recognition Not Supported", {
+                description: "Your browser doesn't support voice commands.",
+                style: { background: '#450a0a', color: '#fca5a5', border: '1px solid #ef4444' }
+            })
+            return
+        }
+
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+        const recognition = new SpeechRecognition()
+
+        recognition.continuous = true
+        recognition.interimResults = false
+        recognition.lang = 'en-US'
+
+        recognition.onstart = () => {
+            setIsListening(true)
+            toast.info("Voice Command Active", {
+                description: "Listening for 'ARISE' command...",
+                style: { background: '#020617', color: '#94a3b8', border: '1px solid #475569' }
+            })
+        }
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase()
+            console.log('Voice detected:', transcript)
+
+            if (transcript.includes('arise')) {
+                setChatMode(true)
+                toast.success("ARISE COMMAND DETECTED", {
+                    description: "Shadow Commander interface activated.",
+                    style: { background: '#450a0a', color: '#f87171', border: '1px solid #b91c1c' }
+                })
+                stopVoiceRecognition()
+            }
+        }
+
+        recognition.onerror = (event: any) => {
+            console.error('Speech recognition error:', event.error)
+            setIsListening(false)
+        }
+
+        recognition.onend = () => {
+            setIsListening(false)
+        }
+
+        recognitionRef.current = recognition
+        recognition.start()
+    }
+
+    const stopVoiceRecognition = () => {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop()
+            recognitionRef.current = null
+        }
+        setIsListening(false)
+    }
+
+    const toggleVoiceRecognition = () => {
+        if (isListening) {
+            stopVoiceRecognition()
+        } else {
+            startVoiceRecognition()
+        }
+    }
+
+    // Attack Summary Handler
+    const handleSummarizeAttack = async () => {
+        setIsSummarizing(true)
+        try {
+            const res = await fetch('/api/browserbase-summary')
+            const data = await res.json()
+
+            if (data.success) {
+                const message = data.formattedMessage
+                setMessages(prev => [...prev, {
+                    role: 'bot',
+                    text: message
+                }])
+                // Text-to-Speech: Read the summary aloud
+                speakText(message)
+            } else {
+                const message = "No attack logs found in the database, My Liege."
+                setMessages(prev => [...prev, {
+                    role: 'bot',
+                    text: message
+                }])
+                speakText(message)
+            }
+        } catch (error) {
+            console.error('Summary fetch error:', error)
+            const message = "Failed to retrieve attack summary. Systems may be offline."
+            setMessages(prev => [...prev, {
+                role: 'bot',
+                text: message
+            }])
+            speakText(message)
+        }
+        setIsSummarizing(false)
+    }
+
+    // Text-to-Speech function
+    const speakText = (text: string) => {
+        if ('speechSynthesis' in window) {
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel()
+
+            // Clean up markdown formatting for better speech
+            const cleanText = text
+                .replace(/\*\*/g, '') // Remove bold markers
+                .replace(/`/g, '') // Remove code markers
+                .replace(/🕐|⚠️|🎯|💀|⏱️|📍/g, '') // Remove emojis
+
+            const utterance = new SpeechSynthesisUtterance(cleanText)
+            utterance.rate = 0.9 // Slightly slower for clarity
+            utterance.pitch = 0.8 // Lower pitch for dramatic effect
+            utterance.volume = 1.0
+
+            window.speechSynthesis.speak(utterance)
+        }
+    }
+
+    // Stop speech when chat is closed
+    useEffect(() => {
+        if (!chatMode && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel()
+        }
+    }, [chatMode])
+
+    // Cleanup voice recognition on unmount
+    useEffect(() => {
+        return () => {
+            if (recognitionRef.current) {
+                recognitionRef.current.stop()
+            }
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel()
+            }
+        }
+    }, [])
+
 
     // Determine Rank based on blocked attacks (Success) vs Trapped (Potential Threat)
     const dominationRate = realStats.hits > 0 ? ((realStats.blocked / realStats.hits) * 100).toFixed(1) : "100"
@@ -205,6 +356,20 @@ export default function AdminPage() {
                         <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_15px_#3b82f6] animate-pulse" />
                         <span className="text-[10px] text-blue-400 font-bold uppercase tracking-tighter">Live Connection</span>
                     </div>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={toggleVoiceRecognition}
+                        className={`h-8 gap-2 transition-all ${isListening
+                            ? 'bg-red-500/20 border-red-500 text-red-400 animate-pulse'
+                            : 'bg-blue-500/5 border-blue-500/20 text-blue-400 hover:bg-blue-500/10'
+                            }`}
+                    >
+                        {isListening ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+                        <span className="text-[10px] font-bold uppercase tracking-wider">
+                            {isListening ? 'Stop' : 'Voice'}
+                        </span>
+                    </Button>
                 </div>
             </header>
 
@@ -487,6 +652,21 @@ export default function AdminPage() {
                                     <Skull className="w-4 h-4" /> IGRIS COMMAND
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    {/* Summarize Attack Button */}
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-6 w-6 text-purple-400 hover:text-purple-200 hover:bg-purple-900/20"
+                                        onClick={handleSummarizeAttack}
+                                        disabled={isSummarizing}
+                                        title="Summarize Latest Attack"
+                                    >
+                                        {isSummarizing ? (
+                                            <RefreshCw className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                            <Sparkles className="w-3 h-3" />
+                                        )}
+                                    </Button>
                                     {/* Video Toggle */}
                                     <Button size="icon" variant="ghost" className="h-6 w-6 text-red-400 hover:text-red-200 hover:bg-red-900/20" onClick={() => setInCall(!inCall)}>
                                         {inCall ? <MessageSquare className="w-3 h-3" /> : <Video className="w-3 h-3" />}
@@ -503,23 +683,23 @@ export default function AdminPage() {
                                 {inCall ? (
                                     <iframe
                                         title="Daily War Room"
-                                        src="https://chameleon-demo.daily.co/demo-room"
+                                        src={DAILY_ROOM_URL}
                                         allow="camera; microphone; fullscreen; display-capture"
                                         className="w-full h-full border-0 grayscale contrast-125 sepia-[.3] hue-rotate-[-50deg]"
                                         style={{ pointerEvents: 'auto' }}
                                     />
                                 ) : (
-                                    <div className="flex flex-col h-full">
-                                        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-                                            <div className="space-y-4">
+                                    <div className="flex flex-col h-full bg-slate-950/40">
+                                        <ScrollArea className="flex-1 w-full" ref={scrollRef}>
+                                            <div className="p-4 space-y-4">
                                                 {messages.map((msg, idx) => (
                                                     <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                                        <div className={`max-w-[85%] p-2 rounded text-xs leading-relaxed ${msg.role === 'user'
+                                                        <div className={`max-w-[85%] p-2 rounded text-xs leading-relaxed break-words overflow-wrap-anywhere ${msg.role === 'user'
                                                             ? 'bg-red-900/30 text-red-100 border border-red-900/50 rounded-tr-none'
                                                             : 'bg-slate-900/80 text-slate-300 border border-slate-700/50 rounded-tl-none'
                                                             }`}>
                                                             {msg.role === 'bot' && <span className="block text-[9px] text-red-500 font-bold mb-1 uppercase tracking-wider">Shadow Commander</span>}
-                                                            {msg.text}
+                                                            <div className="whitespace-pre-wrap break-words">{msg.text}</div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -555,7 +735,11 @@ export default function AdminPage() {
                     {chatMode ? (
                         <span className="text-xl font-bold">✕</span>
                     ) : (
-                        <Skull className="w-8 h-8 animate-pulse" />
+                        <img
+                            src="/arise-icon.png"
+                            alt="IGRIS"
+                            className="w-10 h-10 animate-pulse object-contain"
+                        />
                     )}
                 </motion.button>
             </div>
