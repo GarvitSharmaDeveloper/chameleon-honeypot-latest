@@ -1,9 +1,24 @@
 import Database from 'better-sqlite3'
 import path from 'path'
+import fs from 'fs'
 
 // Initialize DB
-// We use a local file 'honeypot.db' in the project root (or you can put it in /tmp if readonly issues arise)
-const dbPath = path.join(process.cwd(), 'honeypot.db')
+const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production'
+const dbPath = isVercel ? path.join('/tmp', 'honeypot.db') : path.join(process.cwd(), 'honeypot.db')
+
+// On Vercel, copy the initial DB to /tmp if it doesn't exist
+if (isVercel && !fs.existsSync(dbPath)) {
+    try {
+        const seedPath = path.join(process.cwd(), 'honeypot.db')
+        if (fs.existsSync(seedPath)) {
+            fs.copyFileSync(seedPath, dbPath)
+            console.log('✅ Seeded SQLite DB to /tmp')
+        }
+    } catch (e) {
+        console.error('Failed to seed DB:', e)
+    }
+}
+
 const db = new Database(dbPath)
 
 // Initialize Tables
