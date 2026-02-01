@@ -22,10 +22,14 @@ Your Goal:
 Response Format:
 You must respond with a SINGLE JSON object. No markdown formatting.
 {
-    "firewall_rule": "The regex string (e.g. /union\\s+select/i)",
+    "firewall_rule": "The regex string (e.g. /union\\s+select/i). MUST be specific. NEVER return /.*/ or /.*/i.",
     "code_patch": "The FULL python code of the fixed file.",
     "explanation": "A short explanation of the fix."
 }
+
+IMPORTANT RULE:
+- NEVER generate a catch-all regex like '/.*/'.
+- The firewall rule must be targeted specifically to the attack patterns detected.
 
 Context for Code Patch:
 The vulnerable code uses raw f-strings for SQL queries:
@@ -95,14 +99,16 @@ export async function evolveFirewallRule(specificLogStr?: string): Promise<{ suc
                 codePatch = json.code_patch
             } catch (e) {
                 console.error("Failed to parse Gemini JSON:", responseText)
-                regexStr = "/.*/" // Fallback
+                regexStr = "" // No fallback to broad rules
             }
         }
 
         // 3. Store the new rule
-        if (regexStr) {
+        if (regexStr && regexStr !== "/.*/" && regexStr !== "/.*/i") {
             await redis.lpush('firewall:rules', regexStr)
-            console.log(`Example Rule Generated (Not Applied): ${regexStr}`)
+            console.log(`🛡️ Adaptive Rule Applied: ${regexStr}`)
+        } else if (regexStr) {
+            console.warn(`⚠️ Rejected broad firewall rule: ${regexStr}`)
         }
 
         // 4. Apply Code Patch (Self-Healing)
