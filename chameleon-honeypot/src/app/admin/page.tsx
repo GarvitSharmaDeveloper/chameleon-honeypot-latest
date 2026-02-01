@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Activity, ShieldAlert, Bot, Swords, Skull, Send, Video, MessageSquare, Terminal, PieChart as PieChartIcon, Info, FileText, Download } from 'lucide-react'
+import { Activity, ShieldAlert, Swords, Skull, Send, Video, MessageSquare, Terminal, PieChart as PieChartIcon, Info, FileText, Download } from 'lucide-react'
 import { Toaster, toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -164,35 +164,53 @@ export default function AdminPage() {
     const PIE_COLORS = ['#3b82f6', '#ef4444'];
 
 
+    // ... inside AdminPage ...
+
+
     return (
         <div className="min-h-screen bg-slate-950 text-blue-100 font-mono p-6 relative overflow-hidden">
-            {/* Subtle background glow */}
-            <div className="absolute top-0 left-0 w-full h-[500px] bg-blue-900/10 blur-[100px] pointer-events-none" />
+            {/* ... Header ... */}
 
-            <Toaster position="top-right" theme="dark" />
+
 
             {/* HEADER */}
-            <header className="flex justify-between items-center mb-8 border-b border-blue-900/50 pb-4 relative z-10">
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2 text-blue-400 tracking-tighter">
-                        <Swords className="w-6 h-6 text-blue-500" />
-                        SYSTEM ADMIN: S-CLASS
-                    </h1>
-                    <p className="text-blue-600/60 text-sm tracking-widest uppercase">Shadow Monarch Access // UNRESTRICTED</p>
+            <header className="flex justify-between items-center mb-10 border-b border-blue-900/50 pb-6 relative z-10 max-w-[1600px] mx-auto">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)]">
+                        <Swords className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <div>
+                        <h1 className="text-3xl font-extrabold text-blue-400 tracking-tighter flex items-center gap-2">
+                            SYSTEM ADMIN: S-CLASS
+                        </h1>
+                        <p className="text-blue-600/60 text-sm tracking-[0.2em] uppercase font-bold mt-1">Shadow Monarch Access // UNRESTRICTED</p>
+                    </div>
                 </div>
-                <div className="flex gap-4 items-center">
-                    <Badge variant="outline" className={`
-                ${dungeonRank === 'S-RANK' ? 'bg-red-950/50 text-red-500 border-red-500 animate-pulse' :
-                            dungeonRank === 'A-RANK' ? 'bg-purple-900/20 text-purple-500 border-purple-500' :
-                                'bg-blue-900/20 text-blue-400 border-blue-800'}
-            `}>
-                        DUNGEON RANK: {dungeonRank}
-                    </Badge>
-                    <div className="w-3 h-3 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6] animate-pulse" />
+                <div className="flex gap-6 items-center">
+                    <div className="flex flex-col items-end">
+                        <span className="text-[10px] text-blue-800 uppercase font-black tracking-widest mb-1">Current Authorization</span>
+                        <Badge variant="outline" className={`
+                            px-4 py-1.5 text-xs font-black tracking-widest rounded-none border-2
+                            ${dungeonRank === 'S-RANK' ? 'bg-red-950/50 text-red-500 border-red-500 animate-pulse' :
+                                dungeonRank === 'A-RANK' ? 'bg-purple-900/20 text-purple-500 border-purple-500' :
+                                    'bg-blue-900/20 text-blue-400 border-blue-800'}
+                        `}>
+                            DUNGEON RANK: {dungeonRank}
+                        </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/5 border border-blue-500/20 rounded-full">
+                        <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_15px_#3b82f6] animate-pulse" />
+                        <span className="text-[10px] text-blue-400 font-bold uppercase tracking-tighter">Live Connection</span>
+                    </div>
                 </div>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-10 max-w-[1600px] mx-auto">
+
+
+
+                {/* ... Existing Logs ... */}
+
 
                 {/* STATS ROW */}
                 <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -538,6 +556,6 @@ export default function AdminPage() {
                     )}
                 </motion.button>
             </div>
-        </div>
+        </div >
     )
 }

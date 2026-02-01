@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Shield, ShieldAlert, Terminal, Lock, Flame, RefreshCw, Zap, Skull, Code2, Eye, EyeOff } from 'lucide-react'
+import { Shield, ShieldAlert, Terminal, Lock, Flame, RefreshCw, Zap, Skull, Code2, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function Home() {
@@ -20,29 +20,43 @@ export default function Home() {
     "Target Acquired: 192.168.0.X",
     "Select Vector: HONEYPOT (Test) or PRODUCTION (Live)"
   ])
-  const [rules, setRules] = useState<string[]>([])
+  const [rules, setRules] = useState<any[]>([])
   const [isAttacking, setIsAttacking] = useState(false)
   const [isEvolving, setIsEvolving] = useState(false)
+  const [patchStatus, setPatchStatus] = useState<{ isPatched: boolean, criticalLine: string } | null>(null)
+  const [showPatchCode, setShowPatchCode] = useState(false)
 
   // Poll for new rules every 5 seconds
   useEffect(() => {
-    const interval = setInterval(async () => {
+    const fetchRules = async () => {
       try {
         const res = await fetch('/api/rules')
         const data = await res.json()
+
+        // Combine Rules and Patches
+        const combined: any[] = []
+
+        // Process Firewall Rules
         if (data.rules) {
-          setRules(prev => {
-            if (data.rules.length > prev.length) {
-              toast.success("DEFENSE NODE ADAPTED", {
-                description: `New Signature Blocked: ${data.rules[0]}`,
-                style: { background: '#052e16', color: '#4ade80', border: '1px solid #22c55e' }
-              })
-            }
-            return data.rules
-          })
+          data.rules.forEach((r: string) => combined.push({ type: 'rule', content: r }))
         }
+
+        // Process Code Patches
+        if (data.patches) {
+          data.patches.forEach((p: any) => combined.push({ type: 'patch', content: p.trigger || 'Unknown Attack' }))
+        }
+
+        if (data.patchStatus) {
+          setPatchStatus(data.patchStatus)
+        }
+
+        setRules(combined)
+
       } catch (e) { console.error('Polling error', e) }
-    }, 30000)
+    }
+
+    fetchRules()
+    const interval = setInterval(fetchRules, 2000)
     return () => clearInterval(interval)
   }, [])
 
@@ -275,26 +289,80 @@ export default function Home() {
           <CardContent className="flex-1 p-4 bg-black/50">
             <ScrollArea className="h-full pr-4">
               <AnimatePresence>
-                {rules.length === 0 && (
+                {rules.length === 0 && !patchStatus?.isPatched && (
                   <div className="text-center text-green-900 mt-10 font-mono text-xs">
                     // NO_THREATS_DETECTED
                     <br />// SYSTEM_IDLE
                   </div>
                 )}
+                {patchStatus?.isPatched && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-3"
+                  >
+                    <div className="border border-purple-500 bg-purple-950/20 shadow-[0_0_15px_rgba(168,85,247,0.15)] overflow-hidden rounded-md">
+                      <div
+                        className="p-3 flex flex-col gap-2 cursor-pointer hover:bg-purple-900/10 transition-colors"
+                        onClick={() => setShowPatchCode(!showPatchCode)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] uppercase text-purple-400 font-bold tracking-wider flex items-center gap-1">
+                            <Zap className="w-3 h-3 text-purple-500 fill-purple-500 animate-pulse" />
+                            AUTO_PATCH_ACTIVE
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[9px] h-4 border-purple-500/50 text-purple-300 px-1 py-0 rounded-[2px]">
+                              MITIGATED
+                            </Badge>
+                            {showPatchCode ? <ChevronUp className="w-3 h-3 text-purple-400" /> : <ChevronDown className="w-3 h-3 text-purple-400" />}
+                          </div>
+                        </div>
+                        <div className="text-[10px] text-purple-300 opacity-80 pl-1 border-l-2 border-purple-800">
+                          Vulnerability Fixed: SQL Injection
+                        </div>
+                      </div>
+
+                      <AnimatePresence>
+                        {showPatchCode && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="p-3 pt-0 border-t border-purple-500/30 bg-black/40">
+                              <div className="mt-2 relative group">
+                                <div className="absolute -inset-0.5 bg-purple-500/10 blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                                <ScrollArea className="h-[200px] w-full rounded border border-purple-500/30 bg-black/90 p-2 shadow-inner">
+                                  <pre className="text-[10px] font-mono text-purple-200 whitespace-pre-wrap break-words">
+                                    {patchStatus.criticalLine}
+                                  </pre>
+                                </ScrollArea>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </motion.div>
+                )}
                 {rules.map((rule, i) => (
                   <motion.div
-                    key={rule + i}
+                    key={i}
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="mb-3"
                   >
-                    <div className="p-2 border border-green-900 bg-green-950/10 hover:bg-green-900/20 transition-colors">
+                    <div className={`p-2 border ${rule.type === 'patch' ? 'border-purple-500 bg-purple-950/20' : 'border-green-900 bg-green-950/10'} hover:bg-opacity-30 transition-colors`}>
                       <div className="flex justify-between items-start mb-1">
-                        <span className="text-[10px] text-green-700 uppercase">Rule_ID_0{i + 1}</span>
-                        <Lock className="w-3 h-3 text-green-600" />
+                        <span className={`text-[10px] uppercase ${rule.type === 'patch' ? 'text-purple-400' : 'text-green-700'}`}>
+                          {rule.type === 'patch' ? 'AUTO_PATCH_APPLIED' : `Rule_ID_0${i + 1}`}
+                        </span>
+                        {rule.type === 'patch' ? <Zap className="w-3 h-3 text-purple-500" /> : <Lock className="w-3 h-3 text-green-600" />}
                       </div>
-                      <code className="text-xs text-green-400 break-all font-mono block">
-                        {rule}
+                      <code className={`text-xs break-all font-mono block ${rule.type === 'patch' ? 'text-purple-300' : 'text-green-400'}`}>
+                        {rule.type === 'patch' ? `Fix applied for: ${rule.content}` : rule.content}
                       </code>
                     </div>
                   </motion.div>
@@ -308,3 +376,4 @@ export default function Home() {
     </div>
   )
 }
+

@@ -1,5 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { redis } from '@/lib/redis'
+import fs from 'fs'
+import path from 'path'
 
 const USE_MOCK = false // Real API Enabled
 
@@ -11,14 +13,34 @@ const getGeminiModel = () => {
 
 const EVOLVE_SYSTEM_PROMPT = `
 You are an expert Security Engineer.
-Your goal is to write a Javascript Regular Expression that blocks the provided malicious input.
-You must be precise. Avoid overly broad rules like /.*/.
-Capture the specific syntax of the attack (e.g. usage of UNION SELECT, OR 1=1, <script>).
-Handle optional quotes around values (e.g. '1'='1' or "1"="1"). Ensure closing quotes are matched.
-Respond ONLY with the Regex string (e.g. /union\s+select/i).
+You have detected an attack on a Python application.
+
+Your Goal:
+1. Analyze the attack and create a Regex to block it (Firewall Rule).
+2. Generate a Python code patch to fix the underlying vulnerability in the application code.
+
+Response Format:
+You must respond with a SINGLE JSON object. No markdown formatting.
+{
+    "firewall_rule": "The regex string (e.g. /union\\s+select/i)",
+    "code_patch": "The FULL python code of the fixed file.",
+    "explanation": "A short explanation of the fix."
+}
+
+Context for Code Patch:
+The vulnerable code uses raw f-strings for SQL queries:
+query = f"SELECT * FROM users WHERE username = '{username}'"
+
+Fix this by using parameterized queries (sqlite3 '?' placeholder) or input sanitization.
+Return the COMPLETE file content with the fix applied.
+ENSURE THE CODE IS PRODUCTION-READY.
+- Add comments explaining specifically HOW the fix prevents the attack.
+- Use best practices.
+- Do NOT include markdown code blocks in the JSON string value.
+
 `
 
-export async function evolveFirewallRule(specificLogStr?: string): Promise<{ success: boolean, analyzed_command?: string, generated_rule?: string, message?: string }> {
+export async function evolveFirewallRule(specificLogStr?: string): Promise<{ success: boolean, analyzed_command?: string, generated_rule?: string, code_patch_applied?: boolean, message?: string }> {
     try {
         // 1. Fetch the latest attack log
         // Use provided string if automated, or pop from Redis if polling
@@ -43,40 +65,72 @@ export async function evolveFirewallRule(specificLogStr?: string): Promise<{ suc
         const attackCommand = log.command
 
 
-        // 2. Ask Gemini (or Mock) to generate a rule
+        // 2. Ask Gemini (or Mock) to generate a rule AND patch
         const model = getGeminiModel()
         let regexStr = ''
+        let codePatch = ''
 
         if (USE_MOCK) {
             // Mock Rules for Demo
             if (attackCommand.includes("ADMIN") || attackCommand.includes("' OR '1'='1'")) {
                 regexStr = "/(' OR '1'='1')|(\\s+OR\\s+)/i"
+                codePatch = `# FIXED CODE\nquery = "SELECT * FROM users WHERE username = ?"\ncursor.execute(query, (username,))`
             } else if (attackCommand.includes("<script>")) {
                 regexStr = "/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/i"
-            } else if (attackCommand.includes("/etc/passwd")) {
-                regexStr = "/\\/etc\\/passwd/i"
             } else {
                 regexStr = "/(union\\s+select|benchmark|sleep)/i" // Default Catch-all
             }
         } else {
-            console.log("✨ Gemini Evolving Defense Rule...")
+            console.log("✨ Gemini Evolving Defense Rule & Code Patch...")
             const result = await model.generateContent([
                 EVOLVE_SYSTEM_PROMPT,
                 `Malicious Input: "${attackCommand}"`,
-                `Generate Regex:`
+                `Current Vulnerable Code:\n${fs.readFileSync(path.join(process.cwd(), 'dummy/vulnerable_app.py'), 'utf-8')}`
             ])
-            regexStr = result.response.text().trim()
-            regexStr = regexStr.replace(/^```\/?/, '').replace(/```$/, '').trim()
+            const responseText = result.response.text().replace(/^```json/, '').replace(/^```/, '').replace(/```$/, '').trim()
+
+            try {
+                const json = JSON.parse(responseText)
+                regexStr = json.firewall_rule
+                codePatch = json.code_patch
+            } catch (e) {
+                console.error("Failed to parse Gemini JSON:", responseText)
+                regexStr = "/.*/" // Fallback
+            }
         }
 
         // 3. Store the new rule
-        // We store it at the HEAD of the list (firewall:rules)
-        await redis.lpush('firewall:rules', regexStr)
+        // DISABLING LIVE FIREWALL UPDATE for Self-Healing Demo to prevent blocking Admin/User traffic.
+        // We only want to demonstrate the Code Patching on the dummy file.
+        // if (regexStr) await redis.lpush('firewall:rules', regexStr)
+        if (regexStr) console.log(`Example Rule Generated (Not Applied): ${regexStr}`)
+
+        // 4. Apply Code Patch (Self-Healing)
+        let patchApplied = false
+        if (codePatch) {
+            try {
+                const dummyPath = path.join(process.cwd(), 'dummy/vulnerable_app.py')
+                fs.writeFileSync(dummyPath, codePatch)
+                console.log("🩹 Self-Healing Patch Applied to dummy/vulnerable_app.py")
+                patchApplied = true
+
+                // Log patch event?
+                await redis.lpush('patch:history', JSON.stringify({
+                    timestamp: Date.now(),
+                    trigger: attackCommand,
+                    patch: codePatch
+                }))
+
+            } catch (err) {
+                console.error("Failed to apply patch:", err)
+            }
+        }
 
         return {
             success: true,
             analyzed_command: attackCommand,
-            generated_rule: regexStr
+            generated_rule: regexStr,
+            code_patch_applied: patchApplied
         }
 
     } catch (error) {
