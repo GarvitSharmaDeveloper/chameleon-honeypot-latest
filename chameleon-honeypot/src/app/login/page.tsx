@@ -15,13 +15,32 @@ export default function LoginPage() {
     const [password, setPassword] = useState('')
     const [showPassword, setShowPassword] = useState(false)
 
+    // Lockout State
+    const [failCount, setFailCount] = useState(0)
+    const [lockoutUntil, setLockoutUntil] = useState<number | null>(null)
+    const [timeLeft, setTimeLeft] = useState(0)
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
+
+        // Check if locked out
+        if (lockoutUntil && Date.now() < lockoutUntil) {
+            const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000)
+            toast.error("TEMPORARY LOCKOUT", {
+                description: `Too many failed attempts. Try again in ${remaining}s.`,
+                style: { background: '#fef2f2', color: '#991b1b', border: '1px solid #f87171' }
+            })
+            return
+        }
+
         setLoading(true)
 
         try {
             // Check for hardcoded credentials
             if (username === 'admin' && password === 'password') {
+                setFailCount(0)
+                setLockoutUntil(null)
+
                 toast.success("ACCESS GRANTED", {
                     description: "Welcome, Administrator.",
                     style: { background: '#f0fdf4', color: '#166534', border: '1px solid #86efac' }
@@ -42,10 +61,25 @@ export default function LoginPage() {
             // Simulate real login delay
             await new Promise(r => setTimeout(r, 1500))
 
-            toast.error("ACCESS DENIED", {
-                description: "Invalid credentials. Incident reported.",
-                style: { background: '#fef2f2', color: '#991b1b', border: '1px solid #f87171' }
-            })
+            // Update failure tracking
+            const newFailCount = failCount + 1
+            setFailCount(newFailCount)
+
+            if (newFailCount >= 3) {
+                const until = Date.now() + 30000
+                setLockoutUntil(until)
+                setFailCount(0) // Reset counter for next cycle after lockout
+
+                toast.error("USER BLOCKED", {
+                    description: "3 failed attempts detected. System locked for 30s.",
+                    style: { background: '#450a0a', color: '#f87171', border: '1px solid #b91c1c' }
+                })
+            } else {
+                toast.error("ACCESS DENIED", {
+                    description: `Invalid credentials. Attempt ${newFailCount}/3.`,
+                    style: { background: '#fef2f2', color: '#991b1b', border: '1px solid #f87171' }
+                })
+            }
         } catch (error) {
             console.error(error)
         }
