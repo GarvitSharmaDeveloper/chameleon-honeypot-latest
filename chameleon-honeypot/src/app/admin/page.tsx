@@ -50,17 +50,17 @@ export default function AdminPage() {
         const fetchData = async () => {
             try {
                 // Fetch Stats
-                const statsRes = await fetch('/api/stats')
+                const statsRes = await fetch('/api/stats', { cache: 'no-store' })
                 const statsData = await statsRes.json()
                 setRealStats(statsData)
 
                 // Fetch Logs
-                const logsRes = await fetch('/api/logs')
+                const logsRes = await fetch('/api/logs', { cache: 'no-store' })
                 const logsData = await logsRes.json()
                 setLogs(logsData)
 
                 // Fetch DB Logs
-                const dbLogsRes = await fetch('/api/logs/db')
+                const dbLogsRes = await fetch('/api/logs/db', { cache: 'no-store' })
                 const dbLogsData = await dbLogsRes.json()
                 if (Array.isArray(dbLogsData)) setDbLogs(dbLogsData)
             } catch (e) {

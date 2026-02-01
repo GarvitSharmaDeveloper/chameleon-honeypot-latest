@@ -138,6 +138,27 @@ export async function POST(req: Request) {
         }
 
         if (blocked) {
+            // --- LOG BLOCKED ATTACK TO SQLITE ---
+            try {
+                const insertStmt = db.prepare(`
+                    INSERT INTO hacker_activity (date_of_attack, type_of_attack, attacker_severity, hackers_input, ai_response, engagement_time, evidence_docs_path)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                `)
+                const dateStr = new Date().toISOString().replace('T', ' ').split('.')[0]
+                insertStmt.run(
+                    dateStr,
+                    'Blocked / Rule Hit',
+                    'Critical', // Blocked attacks are confirmed malicious
+                    command,
+                    '⛔️ FIREWALL BLOCKED',
+                    0,
+                    ''
+                )
+            } catch (dbError) {
+                console.error('SQLite Log Error (Blocked):', dbError)
+            }
+            // ------------------------------------
+
             return NextResponse.json({ output: `⛔️ FIREWALL BLOCKED: Malicious Payload Detected.` })
         }
 

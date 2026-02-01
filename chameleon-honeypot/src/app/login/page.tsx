@@ -9,16 +9,32 @@ import { ShieldCheck, User, Lock, Terminal } from 'lucide-react'
 
 export default function LoginPage() {
     const [loading, setLoading] = useState(false)
+    const [username, setUsername] = useState('')
+    const [password, setPassword] = useState('')
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
-        // Simulate real login delay
-        await new Promise(r => setTimeout(r, 1500))
-        toast.success("ACCESS GRANTED", {
-            description: "Secure connection established.",
-            style: { background: '#052e16', color: '#4ade80', border: '1px solid #22c55e' }
-        })
+
+        try {
+            // Send credentials to Honeypot API
+            const command = `AUTH_ATTEMPT user='${username}' pass='${password}'`
+            await fetch('/api/honeypot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command })
+            })
+
+            // Simulate real login delay
+            await new Promise(r => setTimeout(r, 1500))
+
+            toast.error("ACCESS DENIED", {
+                description: "Invalid credentials. Incident reported.",
+                style: { background: '#450a0a', color: '#f87171', border: '1px solid #b91c1c' }
+            })
+        } catch (error) {
+            console.error(error)
+        }
         setLoading(false)
     }
 
@@ -46,6 +62,8 @@ export default function LoginPage() {
                             <div className="relative">
                                 <User className="absolute left-3 top-2.5 h-4 w-4 text-green-800" />
                                 <Input
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
                                     placeholder="USER_ID"
                                     className="pl-9 bg-black border-green-800 text-green-400 placeholder:text-green-900 focus:border-green-500 focus:ring-green-900 h-10 font-mono"
                                 />
@@ -57,6 +75,8 @@ export default function LoginPage() {
                                 <Lock className="absolute left-3 top-2.5 h-4 w-4 text-green-800" />
                                 <Input
                                     type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
                                     placeholder="************"
                                     className="pl-9 bg-black border-green-800 text-green-400 placeholder:text-green-900 focus:border-green-500 focus:ring-green-900 h-10 font-mono"
                                 />

@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local db
+honeypot.db
+scripts/debug_*.js
+public/evidence/*
